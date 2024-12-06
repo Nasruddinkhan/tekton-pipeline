@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: shell-script
+  namespace: nasruddinkhan786-dev
+spec:
+  params:
+    - description: The shell script to execute
+      name: script
+      type: string
+  steps:
+    - computeResources: {}
+      image: busybox
+      name: run-script
+      script: |
+        #!/bin/sh
+        echo "Environment Variables:"
+        env
+
+        echo "Workspace Content:"
+        ls -al /workspace/output/  # Path to the workspace
+
+        echo "Current Directory:"
+        pwd
+  workspaces:
+    - description: Workspace for storing files
+      name: output
+

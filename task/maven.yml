@@ -1,0 +1,31 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: maven
+  namespace: nasruddinkhan786-dev
+spec:
+  params:
+    - default: clean package
+      description: Maven goals to execute
+      name: goals
+      type: string
+    - default: ''
+      description: Path to Maven settings.xml file
+      name: settings
+      type: string
+  steps:
+    - computeResources: {}
+      image: 'maven:3.8.7-eclipse-temurin-17'
+      name: build
+      script: |
+        #!/bin/sh
+        if [ -n "$(params.settings)" ]; then
+          mvn --settings $(params.settings) $(params.goals)
+        else
+          mvn $(params.goals)
+        fi
+      workingDir: /workspace/output/
+  workspaces:
+    - description: Workspace for source code
+      name: output
+

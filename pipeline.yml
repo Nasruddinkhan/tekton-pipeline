@@ -1,0 +1,105 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: backend-pipeline
+  namespace: nasruddinkhan786-dev
+spec:
+  params:
+    - default: 'https://github.com/Nasruddinkhan/idealimport-svc'
+      description: The URL of the Git repository to clone
+      name: git-source-url
+      type: string
+    - default: main
+      description: The branch or commit to checkout
+      name: git-source-revision
+      type: string
+  tasks:
+    - name: git-clone
+      params:
+        - name: url
+          value: $(params.git-source-url)
+        - name: revision
+          value: $(params.git-source-revision)
+        - name: sslVerify
+          value: 'false'
+        - name: noProxy
+          value: 'true'
+        - name: deleteExisting
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: source-pvc
+    - name: debug-environment
+      params:
+        - name: script
+          value: |-
+            #!/bin/bash
+            echo "Environment Variables:"
+            env
+
+            echo "Workspace Content:"
+            ls -al /workspace/output/
+
+            echo "Current Directory:"
+            pwd
+      runAfter:
+        - git-clone
+      taskRef:
+        kind: Task
+        name: shell-script
+      workspaces:
+        - name: output
+          workspace: source-pvc
+    - name: run-test-cases
+      params:
+        - name: GOALS
+          value:
+            - clean
+            - install
+        - name: MAVEN_ARGS
+          value:
+            - '-DskipTests'
+        - name: MAVEN_SETTINGS
+          value: |-
+            <settings>
+              <mirrors>
+                <mirror>
+                  <id>central</id>
+                  <url>https://repo.maven.apache.org/maven2</url>
+                  <mirrorOf>central</mirrorOf>
+                </mirror>
+              </mirrors>
+            </settings>
+      runAfter:
+        - debug-environment
+      taskRef:
+        kind: Task
+        name: maven
+      workspaces:
+        - name: output
+          workspace: source-pvc
+    - name: docker-build
+      params:
+        - name: IMAGE
+          value: 'docker.io/nasruddinkhan/auth-svc:latest'
+        - name: CONTEXT
+          value: /workspace/source/
+        - name: DOCKERFILE
+          value: /workspace/source/Dockerfile
+        - name: TLSVERIFY
+          value: 'false'
+      runAfter:
+        - run-test-cases
+      taskRef:
+        kind: ClusterTask
+        name: buildah
+      workspaces:
+        - name: source
+          workspace: source-pvc
+  workspaces:
+    - description: Workspace for storing the cloned Git repository
+      name: source-pvc
+
